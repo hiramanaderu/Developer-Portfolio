@@ -38,13 +38,15 @@ const App = (() => {
     els.menuToggle?.addEventListener('click', () => {
       els.menuToggle.classList.toggle('active');
       els.nav?.classList.toggle('open');
+      els.menuToggle.setAttribute('aria-expanded', String(els.nav?.classList.contains('open')));
     });
 
     // Close menu when clicking a nav link
     document.addEventListener('click', (e) => {
-      if (e.target.matches('[data-nav]')) {
+      if (e.target.closest('[data-nav]')) {
         els.menuToggle?.classList.remove('active');
         els.nav?.classList.remove('open');
+        els.menuToggle?.setAttribute('aria-expanded', 'false');
       }
     });
   }
@@ -134,18 +136,19 @@ const App = (() => {
       });
 
       if (allValid) {
+        const message = Array.from(inputs)
+          .map(input => `${input.name}: ${input.value.trim()}`).join('\n');
+        if (!navigator.clipboard || !window.isSecureContext) {
+          showToast('当前浏览器不支持复制，请手动复制留言；消息尚未发送。', 'error');
+          return;
+        }
         const btn = document.getElementById('submitBtn');
-        const original = btn.innerHTML;
         btn.disabled = true;
-        btn.innerHTML = `<span class="skeleton" style="width:80px;height:16px;display:inline-block;"></span>`;
-        
-        // Simulate API call
-        setTimeout(() => {
-          btn.disabled = false;
-          btn.innerHTML = original;
-          form.reset();
-          showToast('消息已发送，我会尽快回复你！', 'success');
-        }, 1500);
+        navigator.clipboard.writeText(message).then(() => {
+          showToast('留言已复制，尚未发送。请通过已确认的联系方式发送。');
+        }).catch(() => {
+          showToast('复制失败，请手动复制留言；消息尚未发送。', 'error');
+        }).finally(() => { btn.disabled = false; });
       } else {
         showToast('请检查表单填写是否正确', 'error');
       }
@@ -207,6 +210,7 @@ const App = (() => {
       if (e.key === 'Escape') {
         els.menuToggle?.classList.remove('active');
         els.nav?.classList.remove('open');
+        els.menuToggle?.setAttribute('aria-expanded', 'false');
       }
       // / to focus first input
       if (e.key === '/' && !e.target.matches('input, textarea')) {
@@ -242,3 +246,4 @@ if (document.readyState === 'loading') {
 } else {
   App.init();
 }
+
