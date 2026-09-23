@@ -1,0 +1,21 @@
+const fs = require('node:fs');
+const vm = require('node:vm');
+const assert = require('node:assert/strict');
+const handlers = {};
+const inputs = [{name:'name',value:'Tester'}, {name:'email',value:'tester@example.com'}, {name:'message',value:'This is a valid message'}];
+inputs.forEach(x => { x.classList={toggle(){},contains(){return false}}; x.addEventListener=()=>{}; });
+let copied, toastText, callback, shouldFail=false;
+const button = {disabled:false};
+const form={querySelectorAll:()=>inputs,addEventListener:(event,cb)=>{if(event==='submit') callback=cb;}};
+const elements={contactForm:form, submitBtn:button, toastContainer:{appendChild(t){toastText=t.innerHTML;}}};
+const context={document:{readyState:'loading',getElementById:id=>elements[id],addEventListener(){},createElement:()=>({addEventListener(){}})},window:{isSecureContext:true},navigator:{clipboard:{writeText:async text=>{if(shouldFail)throw Error('denied');copied=text;}}}};
+vm.createContext(context);
+const source=fs.readFileSync(require('node:path').join(__dirname, '../js/app.js'),'utf8').replace('return { init, showToast };','return { init, showToast, initForm, cacheElements };');
+vm.runInContext(source+'\nApp.cacheElements(); App.initForm();',context);
+(async()=>{
+ callback({preventDefault(){}}); await new Promise(setImmediate);
+ assert.match(copied,/This is a valid message/);assert.match(toastText,/尚未发送/);assert.equal(button.disabled,false);
+ shouldFail=true; callback({preventDefault(){}});await new Promise(setImmediate);assert.match(toastText,/复制失败/);assert.equal(button.disabled,false);assert.equal(inputs[2].value,'This is a valid message');
+ context.window.isSecureContext=false;callback({preventDefault(){}});assert.match(toastText,/手动复制/);
+ console.log('PASS: clipboard success, rejection, insecure context; draft preserved');
+})();
